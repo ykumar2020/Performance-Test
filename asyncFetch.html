@@ -1,0 +1,99 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Employee Data Load and Performance Measurement</title>
+    <style>
+        #performanceMetrics {
+            margin-top: 20px;
+            font-family: Arial, sans-serif;
+            font-size: 14px;
+        }
+        table {
+            border-collapse: collapse;
+            width: 100%;
+        }
+        th, td {
+            border: 1px solid black;
+            text-align: left;
+            padding: 8px;
+        }
+    </style>
+</head>
+<body>
+    <div id="tableContainer"></div>
+    <div id="performanceMetrics"></div>
+
+    <script>
+        document.addEventListener("DOMContentLoaded", async function() {
+            const performanceStart = performance.now();
+            const csvUrl = 'employees1000000.csv'; // Make sure this path is correct
+
+            // Async function to fetch and parse CSV data using Fetch API
+            async function fetchCSVData(url) {
+                const response = await fetch(url);
+                const csvText = await response.text();
+                const lines = csvText.trim().split('\n');
+                return lines.map(line => line.split('\t'));
+            }
+
+            // Function to render table
+            function renderTable(data) {
+                const tableContainer = document.getElementById('tableContainer');
+                let tableHTML = '<table><tr><th>ID</th><th>Name</th><th>Date Joined</th><th>Salary</th></tr>';
+
+                data.forEach(row => {
+                    tableHTML += '<tr>';
+                    row.forEach(cell => {
+                        tableHTML += `<td>${cell}</td>`;
+                    });
+                    tableHTML += '</tr>';
+                });
+
+                tableHTML += '</table>';
+                tableContainer.innerHTML = tableHTML;
+            }
+
+            // Function to update performance metrics
+            function updatePerformanceMetrics(metricName, time) {
+                const metricsElement = document.getElementById('performanceMetrics');
+                metricsElement.innerHTML += `${metricName}: ${time.toFixed(2)}ms<br>`;
+            }
+
+            // Fetch and render table
+            try {
+                const data = await fetchCSVData(csvUrl);
+                const dataLoadEnd = performance.now();
+                renderTable(data);
+
+                const performanceEnd = performance.now();
+                updatePerformanceMetrics('Data Load Time', dataLoadEnd - performanceStart);
+                updatePerformanceMetrics('Table Render Time', performanceEnd - performanceStart);
+
+                // Check for memory usage (only available in some browsers)
+                if (performance.memory) {
+                    updatePerformanceMetrics('Memory Used', performance.memory.usedJSHeapSize / 1024 / 1024 + ' MB');
+                }
+            } catch (error) {
+                console.error('Error fetching and processing data:', error);
+            }
+
+            // Observers for FCP and LCP
+            new PerformanceObserver((entryList) => {
+                for (const entry of entryList.getEntries()) {
+                    if (entry.name === 'first-contentful-paint') {
+                        updatePerformanceMetrics('FCP', entry.startTime);
+                    }
+                }
+            }).observe({ type: 'paint', buffered: true });
+
+            new PerformanceObserver((entryList) => {
+                const lastEntry = entryList.getEntries().pop();
+                if (lastEntry) {
+                    updatePerformanceMetrics('LCP', lastEntry.startTime);
+                }
+            }).observe({ type: 'largest-contentful-paint', buffered: true });
+        });
+    </script>
+</body>
+</html>
