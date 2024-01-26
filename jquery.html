@@ -1,0 +1,107 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Employee Data Load and Performance Measurement</title>
+    <script src="https://code.jquery.com/jquery-3.7.1.min.js"></script> <!-- Include latest jQuery -->
+    <style>
+        #performanceMetrics {
+            margin-top: 20px;
+            font-family: Arial, sans-serif;
+            font-size: 14px;
+        }
+        table {
+            border-collapse: collapse;
+            width: 100%;
+        }
+        th, td {
+            border: 1px solid black;
+            text-align: left;
+            padding: 8px;
+        }
+    </style>
+</head>
+<body>
+    <div id="tableContainer"></div>
+    <div id="performanceMetrics"></div>
+
+    <script>
+        $(document).ready(function() {
+            const performanceStart = performance.now();
+            const csvUrl = 'employees100000.csv'; // Make sure this path is correct
+
+            // Function to make an AJAX request for CSV data using jQuery
+            function fetchCSVData(url, callback) {
+                $.ajax({
+                    url: url,
+                    type: 'GET',
+                    success: function(csvText) {
+                        callback(csvText);
+                    }
+                });
+            }
+
+            // Function to parse CSV string
+            function parseCSV(csvText) {
+                const lines = csvText.trim().split('\n');
+                return lines.map(line => line.split('\t'));
+            }
+
+            // Function to render table
+            function renderTable(data) {
+                const tableContainer = $('#tableContainer');
+                let tableHTML = '<table><tr><th>ID</th><th>Name</th><th>Date Joined</th><th>Salary</th></tr>';
+
+                data.forEach(row => {
+                    tableHTML += '<tr>';
+                    row.forEach(cell => {
+                        tableHTML += `<td>${cell}</td>`;
+                    });
+                    tableHTML += '</tr>';
+                });
+
+                tableHTML += '</table>';
+                tableContainer.html(tableHTML);
+            }
+
+            // Function to update performance metrics
+            function updatePerformanceMetrics(metricName, time) {
+                const metricsElement = $('#performanceMetrics');
+                metricsElement.append(`${metricName}: ${time.toFixed(2)}ms<br>`);
+            }
+
+            // Fetch and render table
+            fetchCSVData(csvUrl, function(csvText) {
+                const data = parseCSV(csvText);
+                const dataLoadEnd = performance.now();
+                renderTable(data);
+
+                const performanceEnd = performance.now();
+                updatePerformanceMetrics('Data Load Time', dataLoadEnd - performanceStart);
+                updatePerformanceMetrics('Table Render Time', performanceEnd - performanceStart);
+
+                // Check for memory usage (only available in some browsers)
+                if (performance.memory) {
+                    updatePerformanceMetrics('Memory Used', performance.memory.usedJSHeapSize / 1024 / 1024 + ' MB');
+                }
+            });
+
+            // Observers for FCP and LCP
+            new PerformanceObserver((entryList) => {
+                for (const entry of entryList.getEntries()) {
+                    if (entry.name === 'first-contentful-paint') {
+                        updatePerformanceMetrics('FCP', entry.startTime);
+                    }
+                }
+            }).observe({ type: 'paint', buffered: true });
+
+            new PerformanceObserver((entryList) => {
+                const lastEntry = entryList.getEntries().pop();
+                if (lastEntry) {
+                    updatePerformanceMetrics('LCP', lastEntry.startTime);
+                }
+            }).observe({ type: 'largest-contentful-paint', buffered: true });
+        });
+    </script>
+</body>
+</html>
